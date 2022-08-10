@@ -121,10 +121,6 @@ group by PatientSID
 -- very fast, 1 sec, 168 rows, for April 2022 - present. AKA 4 mo or 131 days.
 -- 7 sec, 1976 rows, for 2015 to 2021. To be exact, 5.5 years, or 2009 days.
 
-select top 10 * from #inpatient_cirrhosis
-
--- select top 10 * from con.Consult
-
 go;
 
 
@@ -157,6 +153,8 @@ and VisitDateTime > '2020-01-01 00:00:00'
 
 
 
+/******* Done exploring Outpat. So run it. *****/
+
 if (OBJECT_ID('tempdb.dbo.#outpatient_cirrhosis') is not null) drop table #outpatient_cirrhosis
 declare @dx_before datetime2(0) = '2021-04-01 00:00:00';
 declare @icd10_start datetime2(0) = '2015-10-01 00:00:00';
@@ -179,3 +177,21 @@ and ICD10SID in (
 )
 group by PatientSID
 -- 13 sec, 4067 rows, over the same 5.5 years, 2009 days.
+
+
+
+/****** Join the 2 temp tables. ********/
+
+if (OBJECT_ID('tempdb.dbo.#dx_counts') is not null) drop table #dx_counts
+select 
+	i.PatientSID as inSID, 
+	o.PatientSID as outSID, 
+	i.inpatient_cirrhosis_visits, 
+	o.outpatient_cirrhosis_visits,
+	(inpatient_cirrhosis_visits + outpatient_cirrhosis_visits) as total_visits
+into #dx_counts
+from #inpatient_cirrhosis as i
+FULL JOIN #outpatient_cirrhosis as o
+on i.PatientSID = o.PatientSID
+
+select top 10 * from #dx_counts
