@@ -157,22 +157,16 @@ and VisitDateTime > '2020-01-01 00:00:00'
 
 
 
-
+if (OBJECT_ID('tempdb.dbo.#outpatient_cirrhosis') is not null) drop table #outpatient_cirrhosis
 declare @dx_before datetime2(0) = '2021-04-01 00:00:00';
 declare @icd10_start datetime2(0) = '2015-10-01 00:00:00';
 select 
-top 10  --fixme remove
---count(patientsid) as outpatient_cirrhosis_visits,  --fixme uncomment later
-	--[InpatientDischargeDiagnosisSID],
-	--[InpatientSID],
+count(patientsid) as outpatient_cirrhosis_visits,
 	[PatientSID]
-	--,
-	--[ICD10SID]
--- INTO #inpatient_cirrhosis  --fixme uncomment later
+INTO #outpatient_cirrhosis
 from Outpat.VDiagnosis
 where VisitDateTime < @dx_before
 and VisitDateTime > @icd10_start
--- and sta3n = 580  -- Those ICD10SID should ONLY happen in 580.
 and ICD10SID in (
   1001548148,
   1001548149,
@@ -183,4 +177,5 @@ and ICD10SID in (
   1001548182,
   1001548183
 )
--- group by PatientSID  -- fixme uncomment
+group by PatientSID
+-- 13 sec, 4067 rows, over the same 5.5 years, 2009 days.
