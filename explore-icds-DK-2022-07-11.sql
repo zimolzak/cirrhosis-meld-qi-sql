@@ -182,16 +182,22 @@ group by PatientSID
 
 /****** Join the 2 temp tables. ********/
 
-if (OBJECT_ID('tempdb.dbo.#dx_counts') is not null) drop table #dx_counts
-select 
-	i.PatientSID as inSID, 
-	o.PatientSID as outSID, 
-	i.inpatient_cirrhosis_visits, 
-	o.outpatient_cirrhosis_visits,
-	(inpatient_cirrhosis_visits + outpatient_cirrhosis_visits) as total_visits
-into #dx_counts
-from #inpatient_cirrhosis as i
-FULL JOIN #outpatient_cirrhosis as o
-on i.PatientSID = o.PatientSID
+if (OBJECT_ID('tempdb.dbo.#has_cirrhosis') is not null) drop table #has_cirrhosis
+select * 
+into #has_cirrhosis
+from (
+	select 
+		i.PatientSID as inSID, 
+		o.PatientSID as outSID, 
+		i.inpatient_cirrhosis_visits, 
+		o.outpatient_cirrhosis_visits,
+		(inpatient_cirrhosis_visits + outpatient_cirrhosis_visits) as total_visits
+	from #inpatient_cirrhosis as i
+	FULL JOIN #outpatient_cirrhosis as o
+	on i.PatientSID = o.PatientSID
+) as x
+where x.total_visits > 1
+-- only like 1577 out of 4000+
 
-select top 10 * from #dx_counts
+select * from #has_cirrhosis order by total_visits desc
+-- max = 182, rank 16 = 99, rank 800 = 16, rank 1494 = 2
