@@ -121,5 +121,66 @@ group by PatientSID
 -- very fast, 1 sec, 168 rows, for April 2022 - present. AKA 4 mo or 131 days.
 -- 7 sec, 1976 rows, for 2015 to 2021. To be exact, 5.5 years, or 2009 days.
 
+select top 10 * from #inpatient_cirrhosis
 
-select top 10 * from con.Consult
+-- select top 10 * from con.Consult
+
+go;
+
+
+
+
+
+
+/******* Outpatient diagnoses now ********/
+
+select * from INFORMATION_SCHEMA.COLUMNS
+where TABLE_SCHEMA = 'Outpat' and
+COLUMN_NAME like 'ICD10S%'
+-- this seems to confirm that VDiagnosis is the way to go.
+
+select * from INFORMATION_SCHEMA.COLUMNS
+where TABLE_NAME = 'VDiagnosis' and
+COLUMN_NAME like '%Date%'
+-- probably VDiagnosisDateTime
+-- but also VisitDateTime
+-- Although I don't know what EventDateTime is for sure??
+
+select top 10 VisitDateTime, VDiagnosisDateTime from Outpat.VDiagnosis
+where sta3n = 580
+and VisitDateTime < '2020-04-01 00:00:00'
+and VisitDateTime > '2020-01-01 00:00:00'
+-- seems like VDiagnosisDateTime very likely equal to VisitDateTime
+-- tried this several times.
+-- Decision: will go with VisitDateTime
+
+
+
+
+
+declare @dx_before datetime2(0) = '2021-04-01 00:00:00';
+declare @icd10_start datetime2(0) = '2015-10-01 00:00:00';
+select 
+top 10  --fixme remove
+--count(patientsid) as outpatient_cirrhosis_visits,  --fixme uncomment later
+	--[InpatientDischargeDiagnosisSID],
+	--[InpatientSID],
+	[PatientSID]
+	--,
+	--[ICD10SID]
+-- INTO #inpatient_cirrhosis  --fixme uncomment later
+from Outpat.VDiagnosis
+where VisitDateTime < @dx_before
+and VisitDateTime > @icd10_start
+-- and sta3n = 580  -- Those ICD10SID should ONLY happen in 580.
+and ICD10SID in (
+  1001548148,
+  1001548149,
+  1001548162,
+  1001548179,
+  1001548180,
+  1001548181,
+  1001548182,
+  1001548183
+)
+-- group by PatientSID  -- fixme uncomment
