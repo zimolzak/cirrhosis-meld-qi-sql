@@ -90,11 +90,32 @@ select * from dim.ICD10 where ICD10SID = 1001149302
 
 /********* Start looking at visits *********/
 
-declare @adm_start datetime2(0) = '2021-07-10 00:00:59';
+-- adm_start in the other sql file is CURRENTLY = 2021-04-01 00:00:00
+-- ICD10 looks like took effect 2015-10-01
 
-select top 10 * from Inpat.InpatientDischargeDiagnosis
-where  AdmitDateTime > @adm_start
-and sta3n = 580
+
+declare @dx_before datetime2(0) = '2022-04-01 00:00:00';  -- fixme 2021
+select count(patientsid) as inpatient_cirrhosis_visits,
+	--[InpatientDischargeDiagnosisSID],
+	--[InpatientSID],
+	[PatientSID]
+	--,
+	--[ICD10SID]
+from Inpat.InpatientDischargeDiagnosis
+where AdmitDateTime > @dx_before  -- fixme AdmitDateTime < @dx_before
+-- and sta3n = 580  -- Those ICD10SID should ONLY happen in 580.
+and ICD10SID in (
+  1001548148,
+  1001548149,
+  1001548162,
+  1001548179,
+  1001548180,
+  1001548181,
+  1001548182,
+  1001548183
+)
+group by PatientSID
+-- very fast, 1 sec, 168 rows, for April 2022 - present. AKA 4 mo or 131 days.
 
 
 select top 10 * from con.Consult
