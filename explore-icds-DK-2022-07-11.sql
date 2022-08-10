@@ -93,16 +93,19 @@ select * from dim.ICD10 where ICD10SID = 1001149302
 -- adm_start in the other sql file is CURRENTLY = 2021-04-01 00:00:00
 -- ICD10 looks like took effect 2015-10-01
 
-
-declare @dx_before datetime2(0) = '2022-04-01 00:00:00';  -- fixme 2021
+if (OBJECT_ID('tempdb.dbo.#inpatient_cirrhosis') is not null) drop table #inpatient_cirrhosis
+declare @dx_before datetime2(0) = '2021-04-01 00:00:00';
+declare @icd10_start datetime2(0) = '2015-10-01 00:00:00';
 select count(patientsid) as inpatient_cirrhosis_visits,
 	--[InpatientDischargeDiagnosisSID],
 	--[InpatientSID],
 	[PatientSID]
 	--,
 	--[ICD10SID]
+INTO #inpatient_cirrhosis
 from Inpat.InpatientDischargeDiagnosis
-where AdmitDateTime > @dx_before  -- fixme AdmitDateTime < @dx_before
+where AdmitDateTime < @dx_before
+and AdmitDateTime > @icd10_start
 -- and sta3n = 580  -- Those ICD10SID should ONLY happen in 580.
 and ICD10SID in (
   1001548148,
@@ -116,6 +119,7 @@ and ICD10SID in (
 )
 group by PatientSID
 -- very fast, 1 sec, 168 rows, for April 2022 - present. AKA 4 mo or 131 days.
+-- 7 sec, 1976 rows, for 2015 to 2021. To be exact, 5.5 years, or 2009 days.
 
 
 select top 10 * from con.Consult
