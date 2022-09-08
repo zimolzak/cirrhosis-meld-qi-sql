@@ -70,3 +70,13 @@ where x.total_visits > 1
 
 -- all 3 of these steps take 20 sec. 1976 rows, 4066 rows, 1577 rows
 
+-- At this point, should be able just to run the "retrieve-meld...sql".
+-- That script will generate 4 intermediate temp tables and 1 result temp table.
+
+
+
+
+---- Final Join
+-- #meld_output
+-- #has_cirrhosis
+

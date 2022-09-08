@@ -115,10 +115,13 @@ from (
 -- Freddie. N = 7047 admits currently. 18 sec.
 -- Disha. N = 18670 / 16 mo (< 1 sec !)
 
+/*
+-- uncomment me if you want output
 select m.*, s.PatientName, s.PatientSSN from #meld_output as m
 left join SPatient.SPatient as s
 on m.PatientSID = s.PatientSID
 where meld >= 21 order by meld desc
+*/
 
 -- Freddie. N = 821. 8 sec.
 -- Disha. N = 2,086. 20 sec.
@@ -129,3 +132,5 @@ where meld >= 21 order by meld desc
 -- paste into Notepad
 -- save as txt
 -- into Excel as TSV
+
+-- All of the above took 2:47. {20k 20k 19k 20k 19k rows}
