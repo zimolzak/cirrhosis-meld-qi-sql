@@ -1,9 +1,15 @@
 /*
-Retrieve patients admitted to Houston with MELD-Na score >= 21.
+Retrieve patients admitted to Houston with MELD-Na score >= 21
+AND who have multiple prior visits coded w/ cirrhosis.
 
 Andrew.Zimolzak@va.gov
-2022-08-05 and later
+2022-09-08
 */
+
+
+
+
+-- Calculate MELDs upon admission
 
 if (OBJECT_ID('tempdb.dbo.#closest_na') is not null) drop table #closest_na
 if (OBJECT_ID('tempdb.dbo.#closest_cr') is not null) drop table #closest_cr
@@ -11,12 +17,12 @@ if (OBJECT_ID('tempdb.dbo.#closest_inr') is not null) drop table #closest_inr
 if (OBJECT_ID('tempdb.dbo.#closest_tb') is not null) drop table #closest_tb
 if (OBJECT_ID('tempdb.dbo.#meld_output') is not null) drop table #meld_output
 
-declare @adm_start datetime2(0) = '2021-04-01 00:00:00';
-declare @adm_end datetime2(0) = '2022-07-31 23:59:59';
+declare @adm_start datetime2(0) = '2020-09-01 00:00:00';
+declare @adm_end datetime2(0) = '2022-11-18 23:59:59';
 
 -- In past I set these to adm_start minus 1 mo, and adm_end plus 1 mo.
-declare @lab_start datetime2(0) = '2021-03-01 23:59:59';
-declare @lab_end datetime2(0) = '2022-08-31 23:59:59';
+declare @lab_start datetime2(0) = '2020-08-01 23:59:59';
+declare @lab_end datetime2(0) = '2022-11-18 23:59:59';
 
 -- NOTE: must run all of the following 4, otherwise those scalar vars don't persist
 -- example for all 4 labs: 4:44, about 20k rows * 4, for 16 months.
@@ -112,20 +118,114 @@ from (
 	) as addcorr
 ) as addmeldi
 
--- Freddie. N = 7047 admits currently. 18 sec.
--- Disha. N = 18670 / 16 mo (< 1 sec !)
+-- All of the above took 2:47. {20k 20k 19k 20k 19k rows}
+-- when setting to 2020, took 25:29, sheesh.
+-- {34k 34k 32k 34k 32k}
 
-select m.*, s.PatientName, s.PatientSSN from #meld_output as m
+
+
+-- ICD
+
+declare @dx_before datetime2(0) = '2020-09-01 00:00:00';  --basically same as adm_start
+declare @icd10_start datetime2(0) = '2015-10-01 00:00:00';  --do not change me. This is a point of historical fact, not a free parameter.
+
+-- ICD Inpatient
+
+if (OBJECT_ID('tempdb.dbo.#inpatient_cirrhosis') is not null) drop table #inpatient_cirrhosis
+select count(patientsid) as inpatient_cirrhosis_visits,
+	[PatientSID]
+INTO #inpatient_cirrhosis
+from Inpat.InpatientDischargeDiagnosis
+where AdmitDateTime < @dx_before
+and AdmitDateTime > @icd10_start
+and ICD10SID in (
+  1001548148,
+  1001548149,
+  1001548162,
+  1001548179,
+  1001548180,
+  1001548181,
+  1001548182,
+  1001548183
+)
+group by PatientSID
+
+-- ICD outpatient
+
+if (OBJECT_ID('tempdb.dbo.#outpatient_cirrhosis') is not null) drop table #outpatient_cirrhosis
+select 
+count(patientsid) as outpatient_cirrhosis_visits,
+	[PatientSID]
+INTO #outpatient_cirrhosis
+from Outpat.VDiagnosis
+where VisitDateTime < @dx_before
+and VisitDateTime > @icd10_start
+and ICD10SID in (
+  1001548148,
+  1001548149,
+  1001548162,
+  1001548179,
+  1001548180,
+  1001548181,
+  1001548182,
+  1001548183
+)
+group by PatientSID
+
+-- ICD join inpat + outpat
+
+if (OBJECT_ID('tempdb.dbo.#has_cirrhosis') is not null) drop table #has_cirrhosis
+select * 
+into #has_cirrhosis
+from (
+	select 
+		i.PatientSID as inSID, 
+		o.PatientSID as outSID, 
+		i.inpatient_cirrhosis_visits, 
+		o.outpatient_cirrhosis_visits,
+		(inpatient_cirrhosis_visits + outpatient_cirrhosis_visits) as total_visits
+	from #inpatient_cirrhosis as i
+	FULL JOIN #outpatient_cirrhosis as o
+	on i.PatientSID = o.PatientSID
+) as x
+where x.total_visits > 1
+
+-- fast-ish, 30 seconds
+
+
+
+
+-- JOIN
+
+select top 10 * from #meld_output  -- PatientSID, n=18700
+select top 10 * from #has_cirrhosis  -- inSID, outSID (patient), n=1577
+
+if (OBJECT_ID('tempdb.dbo.#meld_plus_icd') is not null) drop table #meld_plus_icd
+select s.PatientName, s.PatientSSN, c.*, m.*
+into #meld_plus_icd
+from #has_cirrhosis as c
+left join #meld_output as m
+on c.inSID = m.PatientSID
 left join SPatient.SPatient as s
 on m.PatientSID = s.PatientSID
-where meld >= 21 order by meld desc
+--1997 rows?
+-- 2130 when doing from 2020
 
--- Freddie. N = 821. 8 sec.
--- Disha. N = 2,086. 20 sec.
+select top 10 * from #meld_plus_icd
 
---For export, seems best to do this:
--- select all
--- copy with headers
--- paste into Notepad
--- save as txt
--- into Excel as TSV
+select
+PatientName, PatientSSN, AdmitDateTime, meld, AdmitDiagnosis, total_visits, na, cr, inr, tb
+from #meld_plus_icd
+where meld >= 21
+order by AdmitDateTime
+-- n = 255 if dating from 2020-09-01
+
+/*
+Standard export procedure:
+
+select all
+copy with headers
+paste into Notepad
+save as txt
+import into Excel as TSV
+*/
