@@ -17,12 +17,12 @@ if (OBJECT_ID('tempdb.dbo.#closest_inr') is not null) drop table #closest_inr
 if (OBJECT_ID('tempdb.dbo.#closest_tb') is not null) drop table #closest_tb
 if (OBJECT_ID('tempdb.dbo.#meld_output') is not null) drop table #meld_output
 
-declare @adm_start datetime2(0) = '2020-09-01 00:00:00';
-declare @adm_end datetime2(0) = '2022-11-18 23:59:59';
+declare @adm_start datetime2(0) = '2021-04-01 00:00:00';
+declare @adm_end datetime2(0) = '2022-07-31 23:59:59';
 
 -- In past I set these to adm_start minus 1 mo, and adm_end plus 1 mo.
-declare @lab_start datetime2(0) = '2020-08-01 23:59:59';
-declare @lab_end datetime2(0) = '2022-11-18 23:59:59';
+declare @lab_start datetime2(0) = '2021-03-01 23:59:59';
+declare @lab_end datetime2(0) = '2022-08-31 23:59:59';
 
 -- NOTE: must run all of the following 4, otherwise those scalar vars don't persist
 -- example for all 4 labs: 4:44, about 20k rows * 4, for 16 months.
@@ -119,16 +119,14 @@ from (
 ) as addmeldi
 
 -- All of the above took 2:47. {20k 20k 19k 20k 19k rows}
--- when setting to 2020, took 25:29, sheesh.
--- {34k 34k 32k 34k 32k}
 
 
 
 
 -- ICD
 
-declare @dx_before datetime2(0) = '2020-09-01 00:00:00';  --basically same as adm_start
-declare @icd10_start datetime2(0) = '2015-10-01 00:00:00';  --do not change me. This is a point of historical fact, not a free parameter.
+declare @dx_before datetime2(0) = '2021-04-01 00:00:00';
+declare @icd10_start datetime2(0) = '2015-10-01 00:00:00';
 
 -- ICD Inpatient
 
@@ -191,8 +189,6 @@ from (
 ) as x
 where x.total_visits > 1
 
--- fast-ish, 30 seconds
-
 
 
 
@@ -210,16 +206,12 @@ on c.inSID = m.PatientSID
 left join SPatient.SPatient as s
 on m.PatientSID = s.PatientSID
 --1997 rows?
--- 2130 when doing from 2020
-
-select top 10 * from #meld_plus_icd
 
 select
 PatientName, PatientSSN, AdmitDateTime, meld, AdmitDiagnosis, total_visits, na, cr, inr, tb
 from #meld_plus_icd
 where meld >= 21
 order by AdmitDateTime
--- n = 255 if dating from 2020-09-01
 
 /*
 Standard export procedure:
